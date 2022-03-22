@@ -1,0 +1,18 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+cython = "*"
+opencv-python = "*"
+matplotlib = "*"
+pillow = "*"
+rospkg = "*"
+torch = "==1.4.0"
+torchvision = "==0.5.0"
+
+[requires]
+python_version = "3.8"
+
+[dev-packages]
