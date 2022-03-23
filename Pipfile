@@ -16,3 +16,6 @@ torchvision = "==0.5.0"
 python_version = "3.8"
 
 [dev-packages]
+
+[scripts]
+launch = "roslaunch yolact_ros yolact_ros.launch"
