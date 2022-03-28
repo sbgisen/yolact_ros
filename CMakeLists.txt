@@ -7,13 +7,17 @@ project(yolact_ros)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  sensor_msgs cv_bridge rospy std_msgs yolact_ros_msgs dynamic_reconfigure
+find_package(
+  catkin REQUIRED
+  COMPONENTS sensor_msgs
+             cv_bridge
+             rospy
+             std_msgs
+             dynamic_reconfigure
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -90,9 +94,7 @@ find_package(catkin REQUIRED COMPONENTS
 #   cfg/DynReconf1.cfg
 #   cfg/DynReconf2.cfg
 # )
-generate_dynamic_reconfigure_options(
-    cfg/Yolact.cfg
-)
+generate_dynamic_reconfigure_options(cfg/Yolact.cfg)
 
 ###################################
 ## catkin specific configuration ##
@@ -104,10 +106,15 @@ generate_dynamic_reconfigure_options(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES yolact_ros
-   CATKIN_DEPENDS sensor_msgs cv_bridge rospy std_msgs yolact_ros_msgs dynamic_reconfigure
-#  DEPENDS system_lib
+  #  INCLUDE_DIRS include
+  #  LIBRARIES yolact_ros
+  CATKIN_DEPENDS
+    sensor_msgs
+    cv_bridge
+    rospy
+    std_msgs
+    dynamic_reconfigure
+  #  DEPENDS system_lib
 )
 
 ###########
@@ -117,9 +124,8 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
-  ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
+  # include
+  ${catkin_INCLUDE_DIRS} ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
 )
 
 ## Declare a C++ library
