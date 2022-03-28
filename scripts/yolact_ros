@@ -8,36 +8,25 @@ import rospy
 import rospkg
 import cv2
 import threading
-from queue import Queue
-from std_msgs.msg import String
-from std_msgs.msg import Header
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import CompressedImage
-from yolact_ros_msgs.msg import Detections
-from yolact_ros_msgs.msg import Detection
-from yolact_ros_msgs.msg import Box
-from yolact_ros_msgs.msg import Mask
 from pcl_msgs.msg import PointIndices
 from jsk_recognition_msgs.msg import ClassificationResult
 from jsk_recognition_msgs.msg import ClusterPointIndices
-
-from yolact_ros_msgs import mask_utils
 
 from cv_bridge import CvBridge, CvBridgeError
 
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
 from yolact import Yolact
-from utils.augmentations import BaseTransform, FastBaseTransform, Resize
-from layers.output_utils import postprocess, undo_image_transformation
-from data import COCODetection, get_label_map, MEANS, COLORS
-from data import cfg, set_cfg, set_dataset
+from utils.augmentations import FastBaseTransform
+from layers.output_utils import postprocess
+from data import COLORS
+from data import cfg, set_cfg
 from utils import timer
 from utils.functions import SavePath
 from collections import defaultdict
-from rospy.numpy_msg import numpy_msg
 
 from dynamic_reconfigure.server import Server as ReconfigureServer
 from yolact_ros.cfg import YolactConfig
@@ -81,9 +70,6 @@ class YolactNode:
 
     self.image_pub = rospy.Publisher("~visualization", Image, queue_size=1)
 
-    self.detections_pub = rospy.Publisher("~detections", Detections, queue_size=1)
-
-    
     self._result_pub = rospy.Publisher('~result', ClassificationResult, queue_size=1)
     self._cluster_pub = rospy.Publisher('~cluster', ClusterPointIndices, queue_size=1)
 
@@ -281,43 +267,23 @@ class YolactNode:
       return img_numpy
 
   def generate_detections_msg(self, classes, scores, boxes, masks, image_header):
-    dets_msg = Detections()
     result_msg = ClassificationResult()
     cluster_msg = ClusterPointIndices()
     result_msg.classifier = 'yolact'
     for detnum in range(len(classes)):
-      det = Detection()
-      det.class_name = cfg.dataset.class_names[classes[detnum]]
-      result_msg.label_names.append(det.class_name)
+      result_msg.label_names.append(cfg.dataset.class_names[classes[detnum]])
       result_msg.labels.append(classes[detnum])
-      det.score = float(scores[detnum])
-      result_msg.label_proba.append(det.score)
+      result_msg.label_proba.append(float(scores[detnum]))
       x1, y1, x2, y2 = boxes[detnum]
-      det.box.x1 = int(x1)
-      det.box.y1 = int(y1)
-      det.box.x2 = int(x2)
-      det.box.y2 = int(y2)
-      mask = masks[detnum,y1:y2,x1:x2]
-      det.mask.mask = np.packbits(mask.bool().cpu()).tolist()
-      det.mask.height = int(y2 - y1)
-      det.mask.width = int(x2 - x1)
       indices = PointIndices()
       indices.header = image_header
-      indices.indices = [(y1 + j) * masks[detnum].shape[1] + (x1 + k) for j, k in zip(*np.where(mask.cpu()))]
+      masked_indices = np.where(masks[detnum,y1:y2,x1:x2].cpu().numpy())
+      indices.indices = (masked_indices[0] + y1) * masks[detnum].shape[1] + (masked_indices[1] + x1)
       cluster_msg.cluster_indices.append(indices)
-      dets_msg.detections.append(det)
 
-      #encoding_correct = True
-      #for x in range(det.mask.width):
-      #    for y in range(det.mask.height):
-      #        if bool(masks[detnum,y1+y,x1+x]) != mask_utils.test(det.mask, x, y):
-      #            encoding_correct = False
-      #print('Encoding correct: ' + str(encoding_correct))
-
-    dets_msg.header = image_header
     result_msg.header = image_header
     cluster_msg.header = image_header
-    return dets_msg, result_msg, cluster_msg
+    return result_msg, cluster_msg
 
   def evalimage(self, cv_image, image_header):
     with torch.no_grad():
@@ -340,8 +306,7 @@ class YolactNode:
         image = self.prep_display(classes, scores, boxes, masks, frame, fps_str=str(self.fps))
 
       if self.publish_detections:
-        dets, results, clusters = self.generate_detections_msg(classes, scores, boxes, masks, image_header)
-        self.detections_pub.publish(dets)
+        results, clusters = self.generate_detections_msg(classes, scores, boxes, masks, image_header)
         self._result_pub.publish(results)
         self._cluster_pub.publish(clusters)
 
@@ -422,7 +387,7 @@ def main(args):
   rospy.init_node('yolact_ros')
   rospack = rospkg.RosPack()
   yolact_path = rospack.get_path('yolact_ros')
-  
+
   model_path_str = rospy.get_param('~model_path', os.path.join(yolact_path, "scripts/yolact/weights/yolact_base_54_800000.pth"))
   model_path = SavePath.from_str(model_path_str)
   set_cfg(model_path.model_name + '_config')
@@ -430,7 +395,7 @@ def main(args):
   with torch.no_grad():
       cudnn.benchmark = True
       cudnn.fastest = True
-      torch.set_default_tensor_type('torch.cuda.FloatTensor')   
+      torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
       print('Loading model from', model_path_str)
       net = Yolact()
@@ -443,7 +408,7 @@ def main(args):
       cfg.mask_proto_debug = False
 
   ic = YolactNode(net)
-  
+
   srv = ReconfigureServer(YolactConfig, ic.reconfigure_callback)
 
   rospy.spin()
