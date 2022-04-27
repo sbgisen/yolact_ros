@@ -20,4 +20,5 @@ python_version = "3.8"
 [dev-packages]
 
 [scripts]
+build_dcnv2 = "bash -c 'cd scripts/yolact/external/DCNv2 && python setup.py build develop'"
 launch = "roslaunch yolact_ros yolact_ros.launch"
