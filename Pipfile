@@ -12,6 +12,7 @@ rospkg = "*"
 torch = "==1.4.0"
 torchvision = "==0.5.0"
 pycocotools = "*"
+gdown = "*"
 
 [requires]
 python_version = "3.8"
