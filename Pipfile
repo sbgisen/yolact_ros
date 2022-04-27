@@ -22,3 +22,4 @@ python_version = "3.8"
 [scripts]
 build_dcnv2 = "bash -c 'cd scripts/yolact/external/DCNv2 && python setup.py build develop'"
 launch = "roslaunch yolact_ros yolact_ros.launch"
+download_weight = "gdown 'https://drive.google.com/uc?export=download&id=1ZPu1YR2UzGHQD0o1rEqy-j5bmEm3lbyP' -O scripts/yolact/weights/yolact_plus_resnet50_54_800000.pth"
