@@ -5,7 +5,8 @@
     <param name="image_topic" value="/hand_camera/color/image_rect_color"/>
     <param name="use_compressed_image" value="False"/>
     <param name="publish_visualization" value="True"/>
-    <param name="publish_detecitons" value="True"/>
+    <param name="publish_detections" value="True"/>
     <param name="display_visualization" value="False"/>
+    <remap from="~camera_info" to="/hand_camera/color/camera_info"/>
   </node>
 </launch>
