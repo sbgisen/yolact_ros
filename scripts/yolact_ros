@@ -13,6 +13,7 @@ from sensor_msgs.msg import CompressedImage
 from pcl_msgs.msg import PointIndices
 from jsk_recognition_msgs.msg import ClassificationResult
 from jsk_recognition_msgs.msg import ClusterPointIndices
+from jsk_recognition_msgs.msg import Rect, RectArray
 
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -72,6 +73,7 @@ class YolactNode:
 
     self._result_pub = rospy.Publisher('~result', ClassificationResult, queue_size=1)
     self._cluster_pub = rospy.Publisher('~cluster', ClusterPointIndices, queue_size=1)
+    self._rect_pub = rospy.Publisher('~rectArray', RectArray, queue_size=1)
 
     self.bridge = CvBridge()
 
@@ -269,6 +271,7 @@ class YolactNode:
   def generate_detections_msg(self, classes, scores, boxes, masks, image_header):
     result_msg = ClassificationResult()
     cluster_msg = ClusterPointIndices()
+    rects_msg = RectArray()
     result_msg.classifier = 'yolact'
     for detnum in range(len(classes)):
       result_msg.label_names.append(cfg.dataset.class_names[classes[detnum]])
@@ -280,10 +283,17 @@ class YolactNode:
       masked_indices = np.where(masks[detnum,y1:y2,x1:x2].cpu().numpy())
       indices.indices = (masked_indices[0] + y1) * masks[detnum].shape[1] + (masked_indices[1] + x1)
       cluster_msg.cluster_indices.append(indices)
+      rect = Rect()
+      rect.x = int((x1 + x2) / 2)
+      rect.y = int((y1 + y2) / 2)
+      rect.width = int(x2 - x1)
+      rect.height = int(y2 - y1)
+      rects_msg.rects.append(rect)
 
     result_msg.header = image_header
     cluster_msg.header = image_header
-    return result_msg, cluster_msg
+    rects_msg.header = image_header
+    return result_msg, cluster_msg, rects_msg
 
   def evalimage(self, cv_image, image_header):
     with torch.no_grad():
@@ -306,9 +316,10 @@ class YolactNode:
         image = self.prep_display(classes, scores, boxes, masks, frame, fps_str=str(self.fps))
 
       if self.publish_detections:
-        results, clusters = self.generate_detections_msg(classes, scores, boxes, masks, image_header)
+        results, clusters, rects = self.generate_detections_msg(classes, scores, boxes, masks, image_header)
         self._result_pub.publish(results)
         self._cluster_pub.publish(clusters)
+        self._rect_pub.publish(rects)
 
       if self.display_visualization:
         self.image_vis_queue.put_nowait(image)
