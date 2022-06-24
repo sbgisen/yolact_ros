@@ -9,11 +9,13 @@ import rospkg
 import cv2
 import threading
 from sensor_msgs.msg import Image
+from sensor_msgs.msg import CameraInfo
 from sensor_msgs.msg import CompressedImage
 from pcl_msgs.msg import PointIndices
 from jsk_recognition_msgs.msg import ClassificationResult
 from jsk_recognition_msgs.msg import ClusterPointIndices
-from jsk_recognition_msgs.msg import Rect, RectArray
+from jsk_recognition_msgs.msg import Rect
+from jsk_recognition_msgs.msg import RectArray
 
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -71,9 +73,12 @@ class YolactNode:
 
     self.image_pub = rospy.Publisher("~visualization", Image, queue_size=1)
 
+    self._label_pub = rospy.Publisher("~label", Image, queue_size=1)
+    self._rects_pub = rospy.Publisher("~rects", RectArray, queue_size=1)
     self._result_pub = rospy.Publisher('~result', ClassificationResult, queue_size=1)
     self._cluster_pub = rospy.Publisher('~cluster', ClusterPointIndices, queue_size=1)
-    self._rect_pub = rospy.Publisher('~rectArray', RectArray, queue_size=1)
+
+    self.__latest_camera_info = None
 
     self.bridge = CvBridge()
 
@@ -85,6 +90,8 @@ class YolactNode:
     self.image_vis_queue = SynchronizedObject()
     self.visualization_thread = None
     self.unpause_visualization = threading.Event()
+
+    rospy.Subscriber('~camera_info', CameraInfo, self.update_camera_info)
 
     # set parameter default values (will be overwritten by dynamic reconfigure callback)
 
@@ -102,6 +109,7 @@ class YolactNode:
     self.score_threshold = 0.0
     self.crop_masks = True
     self.top_k = 5
+    self.remove_deprecated = True
 
     self.image_sub = None # subscriber is created in dynamic_reconfigure callback
 
@@ -109,6 +117,9 @@ class YolactNode:
     self.fps = 0
     self.last_reset_time = rospy.Time()
     self.frame_counter = 0
+
+  def update_camera_info(self, msg):
+    self.__latest_camera_info = msg
 
   def visualizationLoop(self):
       print('Creating cv2 window')
@@ -271,13 +282,18 @@ class YolactNode:
   def generate_detections_msg(self, classes, scores, boxes, masks, image_header):
     result_msg = ClassificationResult()
     cluster_msg = ClusterPointIndices()
-    rects_msg = RectArray()
     result_msg.classifier = 'yolact'
     for detnum in range(len(classes)):
-      result_msg.label_names.append(cfg.dataset.class_names[classes[detnum]])
+      name = cfg.dataset.class_names[classes[detnum]]
+      score = float(scores[detnum])
+      if score < self.score_threshold:
+        continue
+      result_msg.label_names.append(name)
       result_msg.labels.append(classes[detnum])
-      result_msg.label_proba.append(float(scores[detnum]))
+      result_msg.label_proba.append(score)
+      label_image += masks[detnum].cpu().numpy() * (detnum+1)#classes[detnum]
       x1, y1, x2, y2 = boxes[detnum]
+      rects_msg.rects.append(Rect(x1, y1, x2 - x1, y2 - y1))
       indices = PointIndices()
       indices.header = image_header
       masked_indices = np.where(masks[detnum,y1:y2,x1:x2].cpu().numpy())
@@ -290,10 +306,12 @@ class YolactNode:
       rect.height = int(y2 - y1)
       rects_msg.rects.append(rect)
 
+    label_msg = self.bridge.cv2_to_imgmsg(label_image.astype(np.uint16))
+    label_msg.header = image_header
+
     result_msg.header = image_header
     cluster_msg.header = image_header
-    rects_msg.header = image_header
-    return result_msg, cluster_msg, rects_msg
+    return result_msg, cluster_msg
 
   def evalimage(self, cv_image, image_header):
     with torch.no_grad():
@@ -316,10 +334,9 @@ class YolactNode:
         image = self.prep_display(classes, scores, boxes, masks, frame, fps_str=str(self.fps))
 
       if self.publish_detections:
-        results, clusters, rects = self.generate_detections_msg(classes, scores, boxes, masks, image_header)
+        results, clusters = self.generate_detections_msg(classes, scores, boxes, masks, image_header)
         self._result_pub.publish(results)
         self._cluster_pub.publish(clusters)
-        self._rect_pub.publish(rects)
 
       if self.display_visualization:
         self.image_vis_queue.put_nowait(image)
@@ -416,6 +433,7 @@ def main(args):
 
       net = net.cuda()
       net.detect.use_fast_nms = True
+      net.detect.use_cross_class_nms = True
       cfg.mask_proto_debug = False
 
   ic = YolactNode(net)
