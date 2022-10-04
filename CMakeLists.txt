@@ -193,6 +193,16 @@ include_directories(
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
 
+add_custom_target(${PROJECT_NAME}_install_pipenv_shebang ALL COMMAND python -m pip install pipenv-shebang)
+
+add_custom_target(
+  ${PROJECT_NAME}_install_pipenv ALL
+  COMMAND pipenv install --skip-lock
+  COMMENT [[Install virtual env]]
+)
+
+add_custom_target(${PROJECT_NAME}_setup ALL COMMAND bash -c ${${PROJECT_NAME}_SOURCE_DIR}"/setup.sh")
+
 #############
 ## Testing ##
 #############
