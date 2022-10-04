@@ -1,37 +1,40 @@
-#!/usr/bin/env python
+#!/usr/bin/env pipenv-shebang
 import roslib
+
 roslib.load_manifest('yolact_ros')
-import sys
 import os
+import sys
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "yolact"))
-import rospy
-import rospkg
-import cv2
 import threading
-from sensor_msgs.msg import Image
-from sensor_msgs.msg import CameraInfo
-from sensor_msgs.msg import CompressedImage
-from pcl_msgs.msg import PointIndices
+from collections import defaultdict
+
+import cv2
+import numpy as np
+import rospkg
+import rospy
+import torch
+import torch.backends.cudnn as cudnn
+from cv_bridge import CvBridge
+from cv_bridge import CvBridgeError
+from data import COLORS
+from data import cfg
+from data import set_cfg
+from dynamic_reconfigure.server import Server as ReconfigureServer
 from jsk_recognition_msgs.msg import ClassificationResult
 from jsk_recognition_msgs.msg import ClusterPointIndices
 from jsk_recognition_msgs.msg import Rect
 from jsk_recognition_msgs.msg import RectArray
-
-from cv_bridge import CvBridge, CvBridgeError
-
-import numpy as np
-import torch
-import torch.backends.cudnn as cudnn
-from yolact import Yolact
-from utils.augmentations import FastBaseTransform
 from layers.output_utils import postprocess
-from data import COLORS
-from data import cfg, set_cfg
+from pcl_msgs.msg import PointIndices
+from sensor_msgs.msg import CameraInfo
+from sensor_msgs.msg import CompressedImage
+from sensor_msgs.msg import Image
 from utils import timer
+from utils.augmentations import FastBaseTransform
 from utils.functions import SavePath
-from collections import defaultdict
+from yolact import Yolact
 
-from dynamic_reconfigure.server import Server as ReconfigureServer
 from yolact_ros.cfg import YolactConfig
 
 iou_thresholds = [x / 100 for x in range(50, 100, 5)]
@@ -296,6 +299,10 @@ class YolactNode:
       result_msg.label_proba.append(score)
       label_image += masks[detnum].cpu().numpy() * (detnum+1)#classes[detnum]
       x1, y1, x2, y2 = boxes[detnum]
+      x1 = np.max([x1, 0])
+      y1 = np.max([y1, 0])
+      x2 = np.min([x2, masks[detnum].shape[1] - 1])
+      y2 = np.min([y2, masks[detnum].shape[0] - 1])
       rects_msg.rects.append(Rect(x1, y1, x2 - x1, y2 - y1))
       indices = PointIndices()
       indices.header = image_header
