@@ -197,7 +197,7 @@ add_custom_target(${PROJECT_NAME}_install_pipenv_shebang ALL COMMAND python -m p
 
 add_custom_target(
   ${PROJECT_NAME}_install_pipenv ALL
-  COMMAND pipenv install --skip-lock
+  COMMAND echo y | pipenv install --skip-lock
   COMMENT [[Install virtual env]]
 )
 
