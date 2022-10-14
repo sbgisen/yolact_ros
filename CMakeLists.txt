@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.0.2)
 project(yolact_ros)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
@@ -192,14 +192,6 @@ include_directories(
 #   # myfile2
 #   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 # )
-
-add_custom_target(${PROJECT_NAME}_install_pipenv_shebang ALL COMMAND python -m pip install pipenv-shebang)
-
-add_custom_target(
-  ${PROJECT_NAME}_install_pipenv ALL
-  COMMAND echo y | pipenv install --skip-lock
-  COMMENT [[Install virtual env]]
-)
 
 add_custom_target(${PROJECT_NAME}_setup ALL COMMAND bash -c ${${PROJECT_NAME}_SOURCE_DIR}"/setup.sh")
 
