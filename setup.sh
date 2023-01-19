@@ -1,6 +1,18 @@
 #!/bin/bash
 
-python -m pip install pipenv-shebang
+if [ -z `which pyenv` ]; then
+    curl https://pyenv.run | bash
+    cat >> ${HOME}/.bashrc <<EOF
+export PYENV_ROOT="${HOME}/.pyenv"
+export PATH="${PYENV_ROOT}/bin:${PATH}"
+eval "$(pyenv init --path)"
+eval "$(pyenv virtualenv-init -)"
+EOF
+fi
+
+export PATH=${HOME}/.pyenv/bin:${HOME}/.local/bin:${PATH}
+
+python -m pip install pipenv pipenv-shebang
 SCRIPT_DIR=$(cd $(dirname $0); pwd)
 cd $SCRIPT_DIR
 echo "y" | pipenv install --skip-lock
