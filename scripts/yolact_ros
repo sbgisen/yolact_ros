@@ -373,17 +373,19 @@ class YolactNode:
           print(e)
 
   def callback(self, data):
-    try:
-      if self.use_compressed_image:
-          np_arr = np.fromstring(data.data, np.uint8)
-          cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-      else:
-          cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+    if self.image_pub.get_num_connections() or self._label_pub.get_num_connections() or self._rects_pub.get_num_connections() \
+      or self._cluster_pub.get_num_connections() or self._roi_pub.get_num_connections():
+      try:
+        if self.use_compressed_image:
+            np_arr = np.fromstring(data.data, np.uint8)
+            cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+        else:
+            cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 
-    except CvBridgeError as e:
-      print(e)
+      except CvBridgeError as e:
+        print(e)
 
-    self.processing_queue.put_nowait((cv_image, data.header))
+      self.processing_queue.put_nowait((cv_image, data.header))
 
   def reconfigure_callback(self, config, level):
     if level & (1 << 0): # image_topic / use_compressed_image
