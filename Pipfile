@@ -9,14 +9,14 @@ opencv-python = "*"
 matplotlib = "*"
 pillow = "*"
 rospkg = "*"
-torch = "==1.8.1"
-torchvision = "==0.9.1"
+torch = ">=1.11,<2"
+torchvision = "*"
 pycocotools = "*"
 gdown = "*"
 
 
 [requires]
-python_version = "3.7"
+python_version = "3.8"
 
 [dev-packages]
 
